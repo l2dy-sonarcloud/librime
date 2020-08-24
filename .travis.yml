@@ -1,4 +1,10 @@
 language: cpp
+addons:
+  sonarcloud:
+    organization: "l2dy-sonarcloud"
+    token:
+      secure: "BhhkpJaXQnHnSzbx39de+kVrkSV7VoqW1iEqMGlWdmZmoVdSS/5Mz/1vlwyMIe6hvi7PMFBd72jMJk6HaiA2CUsw2csU6+YJxVyjZBGqR2XFwGNsV68Jltj9hfLI0RrhDdxxY9GolQQOou3Z6uX2hMRInUIgE0SkqeICvYi0+f4fJr/3rOyJ3h9zKimrcua+OViwOeEhquac1d4cjvbWLeKekjDj//iWX3byusI61ffJPvMt2mgPq9O7fOBCfYDChBb+YxDuJDHsbwh6p5he5Jm7UDelXh4HlNIlhibTPJIq/4vO58vBTwiTvDglwyp4DPtqyB39W7uCvXPLx5GxDU99nnJg60jMmPeRW5hHKv10bB4OMi+DWx8NtNynJsFxeet8jesoTBKvBRwu13w5oKFFK4Qd0DlvZ450fPsLDEo6NMgfh1c8MqwS4bzZdVhyUn8E1zovH0bkgMvtcq+jRoRxuxCCWajBHKlqA6x9L49/Ir15Kg75TUmuhi84Irg1qqOGAQCABRfIVUNqfSt7yTVvh5S3BjVq+qt8dV4GBFsT9ZaBbQog+nbjLLWHzBtGTDGVx4kOWGR9Mc0mB8iE0CsMqFFy2rlL044ZHkiqSCtZwOS753ElL9yBfajA6loGXUlw+0pM67khPrzAsE4+IRmBbgbOWyiOXaeZe6jr2hY=" # encrypted value of your token
+
 matrix:
   include:
   - os: linux
@@ -6,30 +12,10 @@ matrix:
     dist: bionic
     sudo: required
     install: "./travis-install.sh"
-    script: make test
-  - &osx_build
-    os: osx
-    compiler: clang
-    install: "./travis-install.sh"
-    script: make xcode/test
-    before_deploy:
-    - make xcode/dist
-    - |
-      zip -r ${RIME_VARIANT:-rime}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.zip \
-      dist thirdparty/bin thirdparty/share \
-      -x '*/curl.exe'
-    deploy:
-      provider: releases
-      api_key:
-        secure: OXzu4Au7Uri/4pugRsQATYv2+QHNRfx64jRBSTdYUJ8ehdg67HHJrofxhUG2Q+lNZlm2VO51ihOsmp9c3gYtT+ohSxD3/y3z8VDw6k7a+5ihT+Svrr1fpHf30I2DupGe5bO1MFB9rltZ+kv/nERciT5n1jOO5ZxefNCRac2aylE=
-      file: ${RIME_VARIANT:-rime}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.zip
-      skip_cleanup: true
-      name: "librime ${TRAVIS_TAG}"
-      body: "chore(release): ${TRAVIS_TAG} :tada:"
-      draft: true
-      on:
-        repo: rime/librime
-        tags: true
-  - <<: *osx_build
-    if: tag IS present
-    env: RIME_PLUGINS="${RIME_BUNDLED_PLUGINS}" RIME_VARIANT="rime-with-plugins"
+    script:
+    # Wraps the compilation with the Build Wrapper to generate configuration (used
+    # later by the SonarScanner) into the "bw-output" folder
+    - build-wrapper-linux-x86-64 --out-dir bw-output make test
+    # And finally run the SonarCloud analysis - read the "sonar-project.properties"
+    # file to see the specific configuration
+    - sonar-scanner -Dsonar.cfamily.build-wrapper-output=bw-output -Dsonar.cfamily.threads=2 -Dsonar.cfamily.cache.enabled=false
